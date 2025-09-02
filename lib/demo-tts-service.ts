@@ -10,8 +10,19 @@ interface DemoAudioData {
   totalDuration: number
 }
 
+interface QueuedRequest {
+  resolve: (value: string) => void
+  reject: (error: any) => void
+  text: string
+  speaker: "caller" | "ai"
+  voiceStyle: "professional" | "warm" | "casual"
+}
+
 export class DemoTTSService {
   private static audioCache = new Map<string, DemoAudioData>()
+  private static requestQueue: QueuedRequest[] = []
+  private static activeRequests = 0
+  private static readonly MAX_CONCURRENT_REQUESTS = 2 // Stay under ElevenLabs limit of 3
 
   static async generateScenarioAudio(
     scenarioId: string,
@@ -66,25 +77,57 @@ export class DemoTTSService {
     speaker: "caller" | "ai",
     voiceStyle: "professional" | "warm" | "casual",
   ): Promise<string> {
-    const response = await fetch("/api/tts/elevenlabs", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    return new Promise((resolve, reject) => {
+      const queuedRequest: QueuedRequest = {
+        resolve,
+        reject,
         text,
-        voice_style: voiceStyle,
         speaker,
-      }),
-    })
+        voiceStyle,
+      }
 
-    if (!response.ok) {
-      throw new Error(`TTS generation failed: ${response.statusText}`)
+      this.requestQueue.push(queuedRequest)
+      this.processQueue()
+    })
+  }
+
+  private static async processQueue() {
+    if (this.activeRequests >= this.MAX_CONCURRENT_REQUESTS || this.requestQueue.length === 0) {
+      return
     }
 
-    // Convert response to blob URL for playback
-    const audioBlob = await response.blob()
-    return URL.createObjectURL(audioBlob)
+    const request = this.requestQueue.shift()!
+    this.activeRequests++
+
+    try {
+      const response = await fetch("/api/tts/elevenlabs", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          text: request.text,
+          voice_style: request.voiceStyle,
+          speaker: request.speaker,
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`TTS generation failed: ${response.statusText}`)
+      }
+
+      // Convert response to blob URL for playback
+      const audioBlob = await response.blob()
+      const audioUrl = URL.createObjectURL(audioBlob)
+
+      request.resolve(audioUrl)
+    } catch (error) {
+      request.reject(error)
+    } finally {
+      this.activeRequests--
+      // Process next request in queue
+      this.processQueue()
+    }
   }
 
   private static async getAudioDuration(audioUrl: string): Promise<number> {
@@ -103,5 +146,7 @@ export class DemoTTSService {
   // Clear cache when needed
   static clearCache() {
     this.audioCache.clear()
+    this.requestQueue.length = 0
+    this.activeRequests = 0
   }
 }

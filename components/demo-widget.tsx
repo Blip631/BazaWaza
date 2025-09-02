@@ -183,6 +183,8 @@ export function DemoWidget() {
   const currentTranscript = scenario.transcript.slice(0, currentTranscriptIndex + 1)
   const totalDuration = scenario.transcript[scenario.transcript.length - 1]?.timestamp + 3000 || 24000
 
+  const isScenarioActive = isPlaying || isLoadingAudio
+
   useEffect(() => {
     const loadAudio = async () => {
       if (!scenario) return
@@ -281,6 +283,11 @@ export function DemoWidget() {
   }
 
   const handleScenarioChange = (scenarioId: string) => {
+    if (isScenarioActive) {
+      console.log(`[v0] Scenario change blocked - current scenario is active`)
+      return
+    }
+
     setSelectedScenario(scenarioId)
     setIsPlaying(false)
     setCurrentTime(0)
@@ -290,6 +297,11 @@ export function DemoWidget() {
   }
 
   const handleVoiceChange = (voiceStyle: string) => {
+    if (isScenarioActive) {
+      console.log(`[v0] Voice change blocked - scenario is active`)
+      return
+    }
+
     setSelectedVoice(voiceStyle)
     setIsPlaying(false)
     setCurrentTime(0)
@@ -324,8 +336,8 @@ export function DemoWidget() {
               {/* Voice Selection */}
               <div>
                 <label className="text-sm font-medium mb-2 block">AI Voice Style</label>
-                <Select value={selectedVoice} onValueChange={handleVoiceChange}>
-                  <SelectTrigger>
+                <Select value={selectedVoice} onValueChange={handleVoiceChange} disabled={isScenarioActive}>
+                  <SelectTrigger className={isScenarioActive ? "opacity-50 cursor-not-allowed" : ""}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -341,6 +353,9 @@ export function DemoWidget() {
                 </Select>
                 <p className="text-xs text-muted-foreground mt-1">
                   Voice style affects only the AI assistant. Customer voices remain consistent.
+                  {isScenarioActive && (
+                    <span className="text-amber-500"> • Controls disabled while scenario is running</span>
+                  )}
                 </p>
               </div>
 
@@ -352,14 +367,24 @@ export function DemoWidget() {
                     <button
                       key={scenario.id}
                       onClick={() => handleScenarioChange(scenario.id)}
+                      disabled={isScenarioActive && selectedScenario !== scenario.id}
                       className={`w-full text-left p-3 rounded-lg border transition-colors ${
                         selectedScenario === scenario.id
                           ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/50"
+                          : isScenarioActive
+                            ? "border-border hover:border-border opacity-50 cursor-not-allowed bg-muted/50"
+                            : "border-border hover:border-primary/50"
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium">{scenario.title}</span>
+                        <span
+                          className={`font-medium ${isScenarioActive && selectedScenario !== scenario.id ? "text-muted-foreground" : ""}`}
+                        >
+                          {scenario.title}
+                          {isScenarioActive && selectedScenario !== scenario.id && (
+                            <span className="text-xs ml-2 text-muted-foreground">(disabled)</span>
+                          )}
+                        </span>
                         <Badge
                           variant={
                             scenario.urgency === "high"
@@ -368,14 +393,25 @@ export function DemoWidget() {
                                 ? "secondary"
                                 : "outline"
                           }
+                          className={isScenarioActive && selectedScenario !== scenario.id ? "opacity-50" : ""}
                         >
                           {scenario.urgency}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground">{scenario.description}</p>
+                      <p
+                        className={`text-sm text-muted-foreground ${isScenarioActive && selectedScenario !== scenario.id ? "opacity-75" : ""}`}
+                      >
+                        {scenario.description}
+                      </p>
                     </button>
                   ))}
                 </div>
+                {isScenarioActive && (
+                  <p className="text-xs text-amber-500 mt-2">
+                    ⚠ Other scenarios are disabled while the current scenario is running. Stop playback to switch
+                    scenarios.
+                  </p>
+                )}
               </div>
 
               {/* Audio Player */}
@@ -437,13 +473,35 @@ export function DemoWidget() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Phone className="w-5 h-5 text-accent" />
-                Live SMS Summary
+                SMS Summary
               </CardTitle>
               <CardDescription>See the instant lead summary sent to your phone</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="bg-card border-2 border-border rounded-3xl p-4 max-w-sm mx-auto">
-                <div className="bg-background rounded-2xl p-4 space-y-4">
+              <div className="relative bg-card border-2 border-border rounded-[2.5rem] p-2 max-w-sm mx-auto shadow-2xl">
+                {/* Phone notch */}
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 bg-card rounded-b-2xl border-l-2 border-r-2 border-b-2 border-border"></div>
+
+                {/* Phone screen */}
+                <div className="bg-background rounded-[2rem] p-4 space-y-4 mt-4 mb-2 min-h-[600px] relative">
+                  {/* Status bar */}
+                  <div className="flex justify-between items-center text-xs text-muted-foreground mb-2">
+                    <div className="flex items-center gap-1">
+                      <div className="flex gap-1">
+                        <div className="w-1 h-1 bg-current rounded-full"></div>
+                        <div className="w-1 h-1 bg-current rounded-full"></div>
+                        <div className="w-1 h-1 bg-current rounded-full"></div>
+                      </div>
+                      <span className="ml-1">Carrier</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span>100%</span>
+                      <div className="w-6 h-3 border border-current rounded-sm">
+                        <div className="w-full h-full bg-current rounded-sm"></div>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="flex items-center gap-3 pb-2 border-b border-border">
                     <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
                       <Phone className="w-4 h-4 text-primary-foreground" />
@@ -507,6 +565,9 @@ export function DemoWidget() {
                     </div>
                   </div>
                 </div>
+
+                {/* Home indicator */}
+                <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 w-32 h-1 bg-border rounded-full"></div>
               </div>
             </CardContent>
           </Card>
