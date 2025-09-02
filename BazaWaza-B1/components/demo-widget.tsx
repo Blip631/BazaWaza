@@ -30,7 +30,7 @@ const demoScenarios: DemoScenario[] = [
     title: "Emergency Call (High Urgency)",
     description: "Panicked homeowner with a flooded kitchen",
     urgency: "high",
-    audioFile: "/audio/emergency-call.mp3", // Added audio file path
+    audioFile: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/git-blob/prj_tmjeIMkssc7a2I5XBff5g2yfnDYf/twQAH-pGfM40TMjAilxu6v/BazaWaza-B1/public/audio/emergency-call.mp3", // Added audio file path
     transcript: [
       {
         speaker: "ai",
@@ -254,14 +254,14 @@ export function DemoWidget() {
     setUseAudioFallback(false)
 
     const audioSource = generatedAudioUrl || scenario.audioFile
-    
+
     // Skip audio loading if we're in demo mode or already have a generated URL
     if (generatedAudioUrl === "demo-mode") {
       console.log("[v0] Demo mode - skipping audio loading, using speech synthesis")
       setUseAudioFallback(true)
       return
     }
-    
+
     const audio = new Audio(audioSource)
     audioRef.current = audio
 
@@ -315,52 +315,64 @@ export function DemoWidget() {
     }
   }, [])
 
-  const getSpeechVoice = useCallback((speaker: "ai" | "caller", urgency?: string) => {
-    if (typeof window === "undefined" || !window.speechSynthesis || !voicesLoaded) {
-      console.log("[v0] Speech synthesis not available or voices not loaded")
-      return null
-    }
-
-    const voices = window.speechSynthesis.getVoices()
-    console.log("[v0] Getting voice for", speaker, "from", voices.length, "available voices")
-
-    if (voices.length === 0) return null
-
-    // Different voice selection for AI vs Customer
-    if (speaker === "ai") {
-      const aiVoiceMap = {
-        professional:
-          voices.find((v) => v.name.includes("Google US English") || v.name.includes("Microsoft")) || voices[0],
-        warm:
-          voices.find((v) => v.name.includes("Google UK English Female") || v.name.includes("Samantha")) ||
-          voices[1] ||
-          voices[0],
-        casual:
-          voices.find((v) => v.name.includes("Google US English Female") || v.name.includes("Alex")) ||
-          voices[2] ||
-          voices[0],
+  const getSpeechVoice = useCallback(
+    (speaker: "ai" | "caller", urgency?: string) => {
+      if (typeof window === "undefined" || !window.speechSynthesis || !voicesLoaded) {
+        console.log("[v0] Speech synthesis not available or voices not loaded")
+        return null
       }
-      const selectedVoiceObj = aiVoiceMap[selectedVoice as keyof typeof aiVoiceMap] || voices[0]
-      console.log("[v0] Selected AI voice:", selectedVoiceObj?.name)
-      return selectedVoiceObj
-    } else {
-      // Customer voice - different from AI
-      const customerVoiceMap = {
-        emergency: voices.find((v) => v.name.includes("Google US English Male") || v.name.includes("David")) || voices[voices.length - 1] || voices[0],
-        normal: voices.find((v) => v.name.includes("Google US English Female") || v.name.includes("Samantha")) || voices[1] || voices[0],
-        frustrated: voices.find((v) => v.name.includes("Google US English Male") || v.name.includes("Tom")) || voices[voices.length - 2] || voices[0]
+
+      const voices = window.speechSynthesis.getVoices()
+      console.log("[v0] Getting voice for", speaker, "from", voices.length, "available voices")
+
+      if (voices.length === 0) return null
+
+      // Different voice selection for AI vs Customer
+      if (speaker === "ai") {
+        const aiVoiceMap = {
+          professional:
+            voices.find((v) => v.name.includes("Google US English") || v.name.includes("Microsoft")) || voices[0],
+          warm:
+            voices.find((v) => v.name.includes("Google UK English Female") || v.name.includes("Samantha")) ||
+            voices[1] ||
+            voices[0],
+          casual:
+            voices.find((v) => v.name.includes("Google US English Female") || v.name.includes("Alex")) ||
+            voices[2] ||
+            voices[0],
+        }
+        const selectedVoiceObj = aiVoiceMap[selectedVoice as keyof typeof aiVoiceMap] || voices[0]
+        console.log("[v0] Selected AI voice:", selectedVoiceObj?.name)
+        return selectedVoiceObj
+      } else {
+        // Customer voice - different from AI
+        const customerVoiceMap = {
+          emergency:
+            voices.find((v) => v.name.includes("Google US English Male") || v.name.includes("David")) ||
+            voices[voices.length - 1] ||
+            voices[0],
+          normal:
+            voices.find((v) => v.name.includes("Google US English Female") || v.name.includes("Samantha")) ||
+            voices[1] ||
+            voices[0],
+          frustrated:
+            voices.find((v) => v.name.includes("Google US English Male") || v.name.includes("Tom")) ||
+            voices[voices.length - 2] ||
+            voices[0],
+        }
+
+        // Select customer voice based on urgency
+        let customerVoiceType = "normal"
+        if (urgency === "high") customerVoiceType = "emergency"
+        if (urgency === "low") customerVoiceType = "frustrated"
+
+        const selectedVoiceObj = customerVoiceMap[customerVoiceType as keyof typeof customerVoiceMap] || voices[0]
+        console.log("[v0] Selected customer voice:", selectedVoiceObj?.name, "for urgency:", urgency)
+        return selectedVoiceObj
       }
-      
-      // Select customer voice based on urgency
-      let customerVoiceType = "normal"
-      if (urgency === "high") customerVoiceType = "emergency"
-      if (urgency === "low") customerVoiceType = "frustrated"
-      
-      const selectedVoiceObj = customerVoiceMap[customerVoiceType as keyof typeof customerVoiceMap] || voices[0]
-      console.log("[v0] Selected customer voice:", selectedVoiceObj?.name, "for urgency:", urgency)
-      return selectedVoiceObj
-    }
-  }, [selectedVoice, voicesLoaded])
+    },
+    [selectedVoice, voicesLoaded],
+  )
 
   const cleanupAudio = useCallback(() => {
     isCleaningUp.current = true
@@ -424,16 +436,16 @@ export function DemoWidget() {
       } else {
         // Customer voice with urgency-based adjustments
         if (scenario.urgency === "high") {
-          utterance.rate = 1.1  // Faster for urgency
-          utterance.pitch = 0.8  // Lower pitch for seriousness
+          utterance.rate = 1.1 // Faster for urgency
+          utterance.pitch = 0.8 // Lower pitch for seriousness
           utterance.volume = 1.0
         } else if (scenario.urgency === "low") {
-          utterance.rate = 0.9   // Slower for calm
-          utterance.pitch = 0.9  // Slightly lower pitch
+          utterance.rate = 0.9 // Slower for calm
+          utterance.pitch = 0.9 // Slightly lower pitch
           utterance.volume = 0.9
         } else {
-          utterance.rate = 0.95  // Normal rate
-          utterance.pitch = 0.9  // Normal pitch
+          utterance.rate = 0.95 // Normal rate
+          utterance.pitch = 0.9 // Normal pitch
           utterance.volume = 1.0
         }
       }
@@ -631,12 +643,12 @@ export function DemoWidget() {
               <CardDescription>Experience how BazaWaza handles real customer calls</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {!process.env.NEXT_PUBLIC_RESEMBLE_API_CONFIGURED && (
+              {!process.env.NEXT_PUBLIC_ELEVENLABS_API_CONFIGURED && (
                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
                   <div className="text-sm text-blue-700 font-medium mb-2">🎭 Demo Mode</div>
                   <div className="text-sm text-blue-700/80 mb-3">
-                    Using browser speech synthesis. Add RESEMBLE_AI_API_KEY environment variable for high-quality
-                    Resemble.AI voices.
+                    Using browser speech synthesis. Add ELEVENLABS_API_KEY environment variable for high-quality
+                    ElevenLabs voices.
                   </div>
                   <div className="text-xs text-blue-600/60">
                     Go to Project Settings → Environment Variables to add your API key.
@@ -659,7 +671,7 @@ export function DemoWidget() {
                 <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                    <span className="text-sm font-medium">Generating high-quality audio with Resemble.AI...</span>
+                    <span className="text-sm font-medium">Generating high-quality audio with ElevenLabs...</span>
                   </div>
                 </div>
               )}
@@ -696,7 +708,7 @@ export function DemoWidget() {
                   disabled={isGeneratingTTS}
                 >
                   <RefreshCw className={`w-4 h-4 mr-2 ${isGeneratingTTS ? "animate-spin" : ""}`} />
-                  Generate with Resemble.AI
+                  Generate with ElevenLabs
                 </Button>
               </div>
 

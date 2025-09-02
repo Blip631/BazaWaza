@@ -31,6 +31,10 @@ interface GeneratedScenario {
 export class TTSService {
   private static cache = new Map<string, string>()
 
+  private constructor() {
+    // This class should only be used statically
+  }
+
   static async generateTTS(request: TTSRequest): Promise<TTSResponse> {
     const cacheKey = `${request.scenario}_${request.voice_style}_${request.text.substring(0, 50)}`
 

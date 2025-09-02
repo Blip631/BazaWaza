@@ -7,26 +7,26 @@ export async function POST(request: NextRequest) {
     console.log("[v0] TTS Generation Request:", { text: text.substring(0, 50) + "...", voice_style, scenario })
 
     // Check for required environment variables
-    if (!process.env.RESEMBLE_AI_API_KEY) {
-      console.log("[v0] RESEMBLE_AI_API_KEY not found - running in demo mode")
+    if (!process.env.ELEVENLABS_API_KEY) {
+      console.log("[v0] ELEVENLABS_API_KEY not found - running in demo mode")
 
       // Return demo mode response
       return NextResponse.json({
         success: false,
         error: "DEMO_MODE",
-        message: "Running in demo mode. Add RESEMBLE_AI_API_KEY environment variable for Resemble.AI integration.",
+        message: "Running in demo mode. Add ELEVENLABS_API_KEY environment variable for ElevenLabs integration.",
         demoMode: true,
       })
     }
 
-    // In a real implementation, this would call Resemble.AI Chatterbox
-    console.log("[v0] Simulating Resemble.AI Chatterbox generation...")
+    // In a real implementation, this would call ElevenLabs API
+    console.log("[v0] Simulating ElevenLabs generation...")
 
     // Simulate processing time
     await new Promise((resolve) => setTimeout(resolve, 1000))
 
     // In production, this would be:
-    // const audioBuffer = await generateWithChatterbox(text, voice_style)
+    // const audioBuffer = await generateWithElevenLabs(text, voice_style)
     // const audioUrl = await uploadToStorage(audioBuffer)
 
     // For now, return a placeholder response
