@@ -315,32 +315,51 @@ export function DemoWidget() {
     }
   }, [])
 
-  const getSpeechVoice = useCallback(() => {
+  const getSpeechVoice = useCallback((speaker: "ai" | "caller", urgency?: string) => {
     if (typeof window === "undefined" || !window.speechSynthesis || !voicesLoaded) {
       console.log("[v0] Speech synthesis not available or voices not loaded")
       return null
     }
 
     const voices = window.speechSynthesis.getVoices()
-    console.log("[v0] Getting voice from", voices.length, "available voices")
+    console.log("[v0] Getting voice for", speaker, "from", voices.length, "available voices")
 
     if (voices.length === 0) return null
 
-    const voiceMap = {
-      professional:
-        voices.find((v) => v.name.includes("Google US English") || v.name.includes("Microsoft")) || voices[0],
-      warm:
-        voices.find((v) => v.name.includes("Google UK English Female") || v.name.includes("Samantha")) ||
-        voices[1] ||
-        voices[0],
-      casual:
-        voices.find((v) => v.name.includes("Google US English Female") || v.name.includes("Alex")) ||
-        voices[2] ||
-        voices[0],
+    // Different voice selection for AI vs Customer
+    if (speaker === "ai") {
+      const aiVoiceMap = {
+        professional:
+          voices.find((v) => v.name.includes("Google US English") || v.name.includes("Microsoft")) || voices[0],
+        warm:
+          voices.find((v) => v.name.includes("Google UK English Female") || v.name.includes("Samantha")) ||
+          voices[1] ||
+          voices[0],
+        casual:
+          voices.find((v) => v.name.includes("Google US English Female") || v.name.includes("Alex")) ||
+          voices[2] ||
+          voices[0],
+      }
+      const selectedVoiceObj = aiVoiceMap[selectedVoice as keyof typeof aiVoiceMap] || voices[0]
+      console.log("[v0] Selected AI voice:", selectedVoiceObj?.name)
+      return selectedVoiceObj
+    } else {
+      // Customer voice - different from AI
+      const customerVoiceMap = {
+        emergency: voices.find((v) => v.name.includes("Google US English Male") || v.name.includes("David")) || voices[voices.length - 1] || voices[0],
+        normal: voices.find((v) => v.name.includes("Google US English Female") || v.name.includes("Samantha")) || voices[1] || voices[0],
+        frustrated: voices.find((v) => v.name.includes("Google US English Male") || v.name.includes("Tom")) || voices[voices.length - 2] || voices[0]
+      }
+      
+      // Select customer voice based on urgency
+      let customerVoiceType = "normal"
+      if (urgency === "high") customerVoiceType = "emergency"
+      if (urgency === "low") customerVoiceType = "frustrated"
+      
+      const selectedVoiceObj = customerVoiceMap[customerVoiceType as keyof typeof customerVoiceMap] || voices[0]
+      console.log("[v0] Selected customer voice:", selectedVoiceObj?.name, "for urgency:", urgency)
+      return selectedVoiceObj
     }
-    const selectedVoiceObj = voiceMap[selectedVoice as keyof typeof voiceMap] || voices[0]
-    console.log("[v0] Selected voice:", selectedVoiceObj?.name)
-    return selectedVoiceObj
   }, [selectedVoice, voicesLoaded])
 
   const cleanupAudio = useCallback(() => {
@@ -392,19 +411,31 @@ export function DemoWidget() {
       }
 
       const utterance = new window.SpeechSynthesisUtterance(currentItem.text)
-      const voice = getSpeechVoice()
+      const voice = getSpeechVoice(currentItem.speaker as "ai" | "caller", scenario.urgency)
       if (voice) {
         utterance.voice = voice
       }
 
+      // Enhanced voice settings for better differentiation
       if (currentItem.speaker === "ai") {
         utterance.rate = selectedVoice === "professional" ? 1.0 : selectedVoice === "warm" ? 0.9 : 1.0
         utterance.pitch = selectedVoice === "warm" ? 1.1 : 1.0
         utterance.volume = 1.0
       } else {
-        utterance.rate = 0.95
-        utterance.pitch = 0.9
-        utterance.volume = 1.0
+        // Customer voice with urgency-based adjustments
+        if (scenario.urgency === "high") {
+          utterance.rate = 1.1  // Faster for urgency
+          utterance.pitch = 0.8  // Lower pitch for seriousness
+          utterance.volume = 1.0
+        } else if (scenario.urgency === "low") {
+          utterance.rate = 0.9   // Slower for calm
+          utterance.pitch = 0.9  // Slightly lower pitch
+          utterance.volume = 0.9
+        } else {
+          utterance.rate = 0.95  // Normal rate
+          utterance.pitch = 0.9  // Normal pitch
+          utterance.volume = 1.0
+        }
       }
 
       utterance.onstart = () => {
